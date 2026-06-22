@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prompt-injection-security"
+version = "5.4.0"
+description = "LLM 提示词注入安全测试框架：动态标记词、变体生成、对抗组合、三级判定 + canary 机密泄露检测"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+authors = [{name = "chenchunrun"}]
+keywords = ["llm", "prompt-injection", "security", "red-team", "jailbreak", "ollama", "ai-safety"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+]
+
+[project.urls]
+Homepage = "https://github.com/chenchunrun/prompt-injection-security"
+Repository = "https://github.com/chenchunrun/prompt-injection-security"
+Issues = "https://github.com/chenchunrun/prompt-injection-security/issues"
+Security = "https://github.com/chenchunrun/prompt-injection-security/blob/main/SECURITY.md"
+
+# 安装后提供命令行入口（pip install -e . → pis-test / pis-compare）
+# 注意：scripts/ 仍可 `cd scripts && python test_llm.py` 直接跑（skill 调用方式不变）
+[project.scripts]
+pis-test = "scripts.test_llm:main"
+pis-compare = "scripts.compare:main"
+
+[tool.setuptools]
+packages = ["scripts"]

@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+
+# 运行产物（可能含真实目标回复 / 凭据片段，勿提交）
+report*.json
+!examples/report*.json
+*.tmp
+*.tmp.*
+
+# 环境/密钥
+.env
+.env.*
+*.pem
+*.key
+
+# 编辑器/系统
+.DS_Store
+.idea/
+.vscode/
+*.swp

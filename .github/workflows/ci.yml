@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # 纯标准库项目：先确认无第三方导入
+      - name: Syntax check (all modules)
+        run: |
+          cd scripts
+          python -c "import ast,glob; [ast.parse(open(f).read()) for f in glob.glob('*.py')]"
+
+      # 方式一：pytest 收集（CI 装 pytest 作为测试运行器，非运行时依赖）
+      - name: Run pytest
+        run: |
+          pip install pytest
+          cd scripts
+          pytest -q
+
+      # 方式二：零依赖脚本自跑 + 模块自测（确保不装 pytest 也能验证）
+      - name: Run test scripts + module self-tests (zero-dependency)
+        run: |
+          cd scripts
+          for t in test_markers_judge test_severity_canary test_compare test_aggregate test_oss_fixes; do
+            python $t.py
+          done
+          python judge.py >/dev/null
+          python markers.py >/dev/null
+
+      # 快速冒烟：--help / --list-targets 正常（不连网）
+      - name: CLI smoke
+        run: |
+          cd scripts
+          python test_llm.py --list-targets >/dev/null
+          python test_llm.py --help >/dev/null
+
+  # C2: 验证 pip 打包 + entry points（在含 pip/setuptools 的 runner 上）
+  packaging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: pip install -e . + entry-point smoke
+        run: |
+          pip install --upgrade pip setuptools wheel
+          pip install -e .
+          pis-test --list-targets >/dev/null
+          pis-compare --help >/dev/null
+          # 确认 skill 式调用仍可用
+          cd scripts && python test_llm.py --list-targets >/dev/null
