@@ -37,6 +37,12 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) seman
 - 主机名经 DNS 解析后判定重定向目标，存在理论 TOCTOU/DNS-rebinding 窗口（IP 字面量判定无此问题）。
 - 初始 URL 仍允许 localhost/私网（本地/内网模型是本工具主用例）；仅对重定向目标施加内网拦截。
 
+### License
+- **MIT → AGPL-3.0**：因 `references/full-patterns.md`（含逐字厂商提示词摘录）与 `scripts/cases.py`（CL4R1T4S 签名攻击）衍生自 CL4R1T4S（AGPL-3.0），仓库整体改用 AGPL-3.0 以合规。`LICENSE` 替换为规范 AGPL-3.0 文本，`pyproject.toml` classifier 与 README badge/许可证段同步。
+
+### Docs
+- 修正描述文件与代码不一致：文件结构补 `cases.py`/`providers.py`/`netsec.py`/`test_netsec.py`/`test_indirect_ssrf.py`，`test_llm.py` 描述改为「主入口 + 编排」；用例数与 `cases.py` 对齐（合计 **104** 标准用例，chatbot+P3=63）；SKILL.md 补 v5.5 变更块；README badge `65→104`、`68 份→数十份`、补 5.3/5.4/5.5 版本史。
+
 ## [5.4.0] — 2026-06
 
 ### Added

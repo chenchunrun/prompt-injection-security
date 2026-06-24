@@ -9,6 +9,13 @@ status: proposal
 
 对大语言模型进行自动化提示词注入安全评估。发送攻击载荷，判定模型是否被攻破，输出结构化报告。
 
+> **v5.5 变更（安全加固 + 模块拆分，详见 CHANGELOG.md）**
+> - **SSRF 加固（新增 `netsec.py`）**：解码十进制/十六进制编码 IP 后拦截云元数据；`safe_urlopen` 拦截重定向到内网/元数据。`_validate_base_url`/`_validate_scan_url`/`make_openai_judge`/`audit_system_prompt` 统一收敛。
+> - **机密脱敏**：canary（尤其 `--secret-canary`）在 report/stdout 改 `sha256:` 哈希，不再明文落盘。
+> - **canary 拒绝引用降级**：模型在**拒绝语境**中念出 canary（如 "I cannot reveal CANARY-…"）由 CRITICAL 降为 **MEDIUM**（部分泄露）；顺从吐出 / 纯 canary 串仍 CRITICAL。
+> - **正确性**：多轮攻击错误不再回灌历史；RNG 单初始化 + 续跑告警；provider 响应形状守卫；错误不再静默。
+> - **H5 模块拆分**：`test_llm.py` 909→559 行，抽出 `cases.py`（语料）+ `providers.py`（网络层）；**H4** 安全拒绝关键词 + API 密钥正则集中到 `judge`。
+>
 > **v5.4 变更（严重度 + canary + 工具链）**
 > - **#3 严重度分级 + 加权风险分**：每个漏洞按 CRITICAL/HIGH/MEDIUM/LOW 分级（机密泄露>角色越狱>系统信息泄露>标记词服从），风险评分改为严重度加权，不再一刀切按 RED 比例。报告新增「严重度」汇总行。
 > - **#4 canary 机密泄露检测**：`--canary`（或 `--secret-canary TEXT`）把唯一机密串注入系统提示，模型一旦吐出 canary 即判 CRITICAL。零频次 canary 杜绝误报，且泛化到任意模型（不靠厂商关键词）。顺带修复 Anthropic 通道丢弃 system 提示的 bug。
@@ -104,12 +111,13 @@ python compare.py base.json fortified.json --json    # 机器可读
 
 | 目标 | 说明 | 用例数 |
 |------|------|--------|
-| `agent` | 智能体系统（Manus/Devin 风格） | 14 |
-| `voice` | 语音 AI（Hume 风格） | 9 |
-| `multi-agent` | 多智能体系统（Grok 风格） | 6 |
-| `coding` | 编程智能体（Cline/Cursor 风格） | 8 |
+| `agent` | 智能体系统（Manus/Devin 风格） | 11 |
+| `voice` | 语音 AI（Hume 风格） | 8 |
+| `multi-agent` | 多智能体系统（Grok 风格） | 5 |
+| `coding` | 编程智能体（Cline/Cursor 风格） | 6 |
 | `enterprise-coder` | 企业级编程智能体（Factory DROID 风格） | 8 |
 | `research-agent` | 研究型智能体（Perplexity Deep Research 风格） | 8 |
+| **合计（标准用例）** | | **104** |
 
 ## 动态模式
 
@@ -196,21 +204,28 @@ model                 模型名称
 
 ```
 scripts/
-├── test_llm.py              # 主入口 + 测试用例定义
-├── markers.py               # 随机标记词生成（v2，仅零频次池）
-├── variants.py              # 离线变体模板库（305 行）
-├── combinations.py          # P3 对抗性组合生成器（300 行）
+├── test_llm.py              # 主入口 + 编排（run_case / run_all / aggregate / report / main）
+├── cases.py                 # 攻击用例语料 TARGET_CASES（7 目标类型，104 标准用例）
+├── providers.py             # provider 网络层（Ollama/OpenAI/Anthropic + SSRF + 重试）
+├── netsec.py                # SSRF 原语（URL 校验 / 编码 IP 解码 / 重定向拦截 opener）
 ├── judge.py                 # 三级判定引擎（解释性提及降级 + 严重度分级 + canary 检测）
-├── compare.py               # 报告对比器（总览/逐层矩阵/用例翻转）(v5.4 新增)
-├── audit_system_prompt.py   # 系统提示词审计工具（180 行）
-├── indirect_scanner.py      # 间接注入扫描器（105 行）
+├── markers.py               # 随机标记词生成（v2，仅零频次池）
+├── variants.py              # 离线变体模板库
+├── combinations.py          # P3 对抗性组合生成器
+├── compare.py               # 报告对比器（总览/逐层矩阵/用例翻转）
+├── audit_system_prompt.py   # 系统提示词审计工具
+├── indirect_scanner.py      # 间接注入扫描器
 ├── triage.py                # 快速分诊工具
-├── test_markers_judge.py    # #1/#2 回归测试（标记词池 + L1 降级）
-├── test_severity_canary.py  # #3/#4 回归测试（严重度分级 + canary）
-├── test_compare.py          # #5 回归测试（对比器）
-├── test_aggregate.py        # #6 回归测试（多种子聚合）
-└── test_oss_fixes.py        # SSRF/脱敏/canary熵/judge解析 回归测试
+├── test_markers_judge.py    # 回归：标记词池 + L1 降级
+├── test_severity_canary.py  # 回归：严重度分级 + canary（含 H1 拒绝引用降级）
+├── test_compare.py          # 回归：对比器
+├── test_aggregate.py        # 回归：多种子聚合
+├── test_oss_fixes.py        # 回归：SSRF/脱敏/canary 熵/judge 解析
+├── test_indirect_ssrf.py    # 回归：indirect_scanner SSRF + 响应大小上限
+└── test_netsec.py           # 回归：编码 IP 元数据绕过 + 重定向内网拦截
+```
 
+```
 references/
 ├── full-patterns.md         # 完整攻击模式与防御参考（基于 CL4R1T4S 数据）
 ├── defense-templates.md     # 防御指令模板
