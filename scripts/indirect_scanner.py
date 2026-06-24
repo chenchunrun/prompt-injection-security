@@ -9,24 +9,17 @@
   python scripts/indirect_scanner.py --url "https://github.com/..." --github
 """
 import argparse, json, re, sys
-from urllib.request import Request, urlopen
-from urllib.parse import urlparse
+from urllib.request import Request
 
-# M-5 SSRF 防护：扫描目标也只允许 http/https，阻断云元数据/内网地址。
-# （注意：与 test_llm._validate_base_url 逻辑一致，但本扫描器作为独立工具自带轻量校验，避免反向重依赖）
-_BLOCKED_HOSTS = ("169.254.169.254", "metadata.google.internal")  # AWS/GCP/Azure 云元数据
+# SSRF 防护统一收敛到 netsec：限 http/https、拒云元数据端点（含编码 IP 绕过）、重定向拦截内网。
+from netsec import validate_url, safe_urlopen
+
 MAX_RESPONSE_BYTES = 5_000_000  # 响应大小上限，防内存炸弹
 
 
 def _validate_scan_url(url: str) -> str:
-    """仅允许 http/https；拒绝 file://、云元数据与内网地址。返回 rstrip('/') 的 url。"""
-    p = urlparse(url)
-    if p.scheme not in ("http", "https"):
-        raise ValueError(f"仅允许 http/https URL，得到 {p.scheme or '(无 scheme)'}")
-    host = (p.hostname or "").lower()
-    if host in _BLOCKED_HOSTS or host.endswith(".internal") or host.endswith(".local"):
-        raise ValueError(f"目标指向内网/元数据地址 {host}，已拒绝")
-    return url.rstrip("/")
+    """SSRF 校验：委托 netsec.validate_url（限 http/https、拒云元数据含编码 IP 绕过）。返回去尾斜杠 url。"""
+    return validate_url(url)
 
 # 隐藏 CSS 模式
 HIDDEN_CSS = [
@@ -75,7 +68,7 @@ def fetch_url(url: str, timeout: int = 15, max_bytes: int = MAX_RESPONSE_BYTES) 
     """获取 URL 内容。SSRF 防护：校验 scheme/主机，限制响应大小。"""
     url = _validate_scan_url(url)  # 不合法则抛 ValueError
     req = Request(url, headers={"User-Agent": "PI-Scanner/1.0"})
-    with urlopen(req, timeout=timeout) as resp:
+    with safe_urlopen(req, timeout=timeout) as resp:  # 拦截重定向到内网/元数据
         # 限量读取，防止超大响应耗尽内存
         data = resp.read(max_bytes + 1)
         if len(data) > max_bytes:
@@ -102,7 +95,7 @@ def main():
             print(f"ERROR: {e}"); sys.exit(1)
     elif args.file:
         source = args.file
-        with open(args.file) as f: content = f.read()
+        with open(args.file, encoding="utf-8") as f: content = f.read()
     elif args.text:
         source = "text"
         content = args.text

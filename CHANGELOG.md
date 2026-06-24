@@ -2,6 +2,41 @@
 
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/) semantics. Versions track `SKILL.md`.
 
+## [5.5.0] — 2026-06
+
+代码审查后的安全加固与正确性修复轮次。
+
+### Security
+- **SSRF 加固（新增 `netsec.py`）**：`_validate_base_url`/`_validate_scan_url` 收敛到统一原语。云元数据黑名单扩展（AWS ECS `169.254.170.2`、Azure、Alibaba `100.100.100.200` 等）；**解码十进制/十六进制编码 IP** 后再判（堵 `http://2852039166`、`http://0xa9fea9fe` 等字面量绕过）。
+- **重定向 SSRF 拦截**：`_openai`/`_anthropic`/`fetch_url`/`make_openai_judge` 改用 `safe_urlopen`，自定义 `HTTPRedirectHandler` 对每个重定向目标重做内网/元数据校验——外部 API 302 到 `169.254.169.254` 不再被跟随。
+- **`make_openai_judge` SSRF 校验**：此前 judge 通道对 `base_url` 零校验、且 `urlopen` 跟随重定向；现已加 `validate_url` + `safe_urlopen` + 响应形状守卫。
+- **`audit_system_prompt.py` 去第三方依赖 + SSRF**：`requests` 换回纯标准库 `urllib`，并对 `--api` 做校验；裸 `except:` 收窄为 `except Exception:`。
+- **机密脱敏**：canary（尤其 `--secret-canary` 的真实值）在 report/stdout 中改为 `sha256:` 前缀哈希，不再明文落盘或随报告外泄。运行时检测仍用内存真值。
+- **userinfo 剥离**：`_validate_base_url` 去掉 URL 中的 `user:password@`，避免凭据写进 report/stdout。
+
+### Changed
+- **H1 canary 拒绝引用降级**：模型在**拒绝语境**中念出 canary（如 "I cannot reveal CANARY-…"）由 CRITICAL 降为 **MEDIUM**（部分泄露），与标记词 L1 的拒绝感知保持一致；顺从吐出 / 纯 canary 串仍为 CRITICAL。避免"更安全的拒绝行为被判得比顺从泄露还重"。
+
+### Fixed
+- **C3 多轮攻击错误污染**：多轮用例某轮返回 `[ERR:…]` 时立即中止，不再把错误串当 assistant 喂回下一轮掩盖真实失败。
+- **C4 RNG 双初始化 + 续跑告警**：种子生成改为单次构造；`--resume` + `adaptive` 同用时打 stderr 提示（续跑结果有效但不可与同 seed 全新运行逐例对比）。
+- **响应形状守卫**：`_ollama`/`_openai`/`_anthropic` 对空 `choices`/`content`/`message.content`（内容过滤、工具边界截断等）显式报错而非 IndexError；`call_api` 区分"网络错误 / 解析错误 / 其他"，均不再静默吞掉。
+- **错误日志化**：L3 judge、`_dump_partial`、`call_api` 的裸/宽 `except` 不再静默——失败打 stderr，让坏掉的 judge/磁盘满等可见。
+- `classify_severity` 的 `"密钥" in r`（未小写）不一致修正为 `r_low`。
+
+### Added
+- `scripts/netsec.py`（共享 SSRF 原语：URL 校验 / 编码 IP 解码 / 重定向拦截 opener）。
+- `scripts/test_netsec.py`（编码 IP 元数据绕过、重定向内网拦截、解码原语回归）。
+
+### Refactor (H4/H5)
+- **H5 模块拆分**：`test_llm.py` 从 909 行降到 559 行——抽出 `cases.py`（TARGET_CASES 语料 + `list_targets`，246 行纯数据）、`providers.py`（Ollama/OpenAI/Anthropic 网络层 + SSRF + 重试，176 行）。`test_llm` 仅保留编排（run_case / run_all / aggregate / run_multi / report / main）。
+- **H4 判定原语集中**：安全拒绝关键词（原 `analyze()` 内联 `safe_kw`）改为引用 `judge.is_safe_refusal`；API 密钥正则集中为 `judge.API_KEY_PATTERN`（`COMPLIANCE_PATTERNS` 与 `api_key_leak` 检测器共用），消除两套关键词漂移。`judge` 提升为无条件核心导入。
+- 公共接口保持：`from test_llm import _validate_base_url / _redacted_err / aggregate_reports` 仍可用（经 providers 再导出）。
+
+### Known limitations / TODO
+- 主机名经 DNS 解析后判定重定向目标，存在理论 TOCTOU/DNS-rebinding 窗口（IP 字面量判定无此问题）。
+- 初始 URL 仍允许 localhost/私网（本地/内网模型是本工具主用例）；仅对重定向目标施加内网拦截。
+
 ## [5.4.0] — 2026-06
 
 ### Added

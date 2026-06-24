@@ -1,7 +1,7 @@
 ---
 name: "prompt-injection-security"
 description: "LLM 提示词注入安全测试框架：动态标记词、变体生成、对抗组合、三级判定，支持 7 种目标类型"
-version: "5.4.0"
+version: "5.5.0"
 status: proposal
 ---
 
