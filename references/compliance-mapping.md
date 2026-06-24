@@ -4,7 +4,7 @@
 
 | OWASP ID | 威胁类别 | 覆盖 | 对应防御/检测 |
 |----------|----------|------|--------------|
-| LLM01 | Prompt Injection | ✅ | test_llm (全部23用例), triage (8条规则), indirect_scanner |
+| LLM01 | Prompt Injection | ✅ | test_llm (104 标准用例 / chatbot+P3=63), triage (8条规则), indirect_scanner |
 | LLM02 | Insecure Output Handling | ✅ | audit_system_prompt (输出控制检查) |
 | LLM03 | Training Data Poisoning | ⚠️ | indirect_scanner (数据源污染检测) |
 | LLM04 | Model DoS | ❌ | 超出范围 |

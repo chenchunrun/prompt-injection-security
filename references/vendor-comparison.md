@@ -1,6 +1,6 @@
 # 厂商防御策略对比
 
-基于对各主流 AI 产品系统提示词的公开研究。
+> 各厂商系统提示词片段引自 [CL4R1T4S](https://github.com/elder-plinius/CL4R1T4S)（[@elder_plinius](https://github.com/elder-plinius)）收集的**真实泄露系统提示词**（AGPL-3.0）。本仓库沿用 AGPL-3.0。
 
 ## 对比矩阵
 
