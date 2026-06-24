@@ -38,3 +38,8 @@ pis-compare = "scripts.compare:main"
 
 [tool.setuptools]
 packages = ["scripts"]
+
+[tool.pytest.ini_options]
+# CI 用裸 `pytest`（非 `python -m pytest`）不会把 cwd 加入 sys.path；
+# 这里显式声明，让测试可用 `from test_llm import` / `from compare import` 等顶层导入。
+pythonpath = ["scripts"]

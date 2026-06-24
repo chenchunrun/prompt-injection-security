@@ -36,7 +36,7 @@ jobs:
       - name: Run test scripts + module self-tests (zero-dependency)
         run: |
           cd scripts
-          for t in test_markers_judge test_severity_canary test_compare test_aggregate test_oss_fixes; do
+          for t in test_markers_judge test_severity_canary test_compare test_aggregate test_oss_fixes test_indirect_ssrf test_netsec; do
             python $t.py
           done
           python judge.py >/dev/null

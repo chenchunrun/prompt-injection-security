@@ -165,7 +165,10 @@ def expand_paths(args):
     return paths
 
 
-def main(argv):
+def main(argv=None):
+    # argv=None 时取命令行参数——兼容两种调用：entry point（pis-compare，无参调用）
+    # 与脚本自跑（`python compare.py a.json b.json`，显式传 sys.argv[1:]）。
+    argv = sys.argv[1:] if argv is None else argv
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__)
         return 0
